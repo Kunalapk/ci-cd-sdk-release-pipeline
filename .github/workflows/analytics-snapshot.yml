@@ -1,0 +1,41 @@
+name: analytics-snapshot
+
+# Controls when the action will run.
+on:
+  push:
+    branches:
+      - snapshot/*
+
+jobs:
+  build:
+    # The type of runner that the job will run on, this job will run on ubuntu machine
+    runs-on: ubuntu-latest
+    env:
+      git_user: ${{ secrets.MOBILE_GIT_USER_NAME }}
+      git_token: ${{ secrets.GIT_TOKEN }}
+      SLACK_WEBHOOK_URL: ${{ secrets.ANDROID_SLACK_URL }}
+      RELEASE_VARIANT: debug
+      RELEASE_TAG_SUFFIX: snapshot
+
+    steps:
+      # Checkout the branch
+      - name: Checking out the branch
+        id: check_out_branch
+        uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.ANDROID_PAT }}
+      - name: Decrypting GitHub secrets
+        id: decrypt_files
+        run: |
+          echo "${{ secrets.MOBILE_LOCAL_PROPERTIES }}" > local.properties.asc
+          gpg -d --passphrase "${{ secrets.ANDROID_DECRYPT_KEY }}" --batch local.properties.asc > local.properties
+      # Build aar
+      - name: Building aar package
+        id: build_aar
+        run: |
+          ./gradlew dummy-sdk:build
+      # Publish aar
+      - name: Publishing aar package
+        id: publish_aar
+        run: |
+          ./gradlew dummy-sdk:publishReleasePublicationToGitHubPackagesRepository
